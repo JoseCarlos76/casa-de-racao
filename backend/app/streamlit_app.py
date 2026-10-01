@@ -103,12 +103,12 @@ def gerar_pdf_fechamento(data_str, faturamento, custo, sangria, lucro, df_vendas
 
 
     # --- NAVEGAÇÃO POR ABAS ---
-aba1, aba2, aba3, aba4 = st.tabs(["📦 Produtos", "🛒 Vendas do Dia", "💸 Sangrias", "📊 Fechar Caixa & Dashboard"])
+aba1, aba2, aba3, aba4 = st.tabs(["📦 Produtos", "🛒 Vendas do Dia", "💸 Sangrias", "📊 Fechar Caixa & Dashboard"]) #Função do Streamlit para a navegação.
 
 # 1. CADASTRO DE PRODUTOS
 with aba1:
     st.header("Cadastrar Produto")
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4 = st.columns(4)  #Aqui ele cria 4 colunas para o cadastro de produtos, cada coluna terá um input diferente.
     with col1:
         nome_p = st.text_input("Nome do Produto")
     with col2:
@@ -122,13 +122,42 @@ with aba1:
 
     if st.button("➕ Salvar Produto"):
         if nome_p:
-            supabase.table("produtos").insert({
-                "nome": nome_p, "preco_custo": custo_p, 
-                "margem_lucro": margem_p, "preco_venda": venda_p
+            supabase.table("produtos").insert({   #SIGNIFICA: Quero trabalhar com a tabela produtos
+                "nome": nome_p,
+                "preco_custo": custo_p, 
+                "margem_lucro": margem_p, 
+                "preco_venda": venda_p
             }).execute()
             st.success("Produto salvo no Supabase!")
-            st.rerun()
+            st.rerun() #Recarrega a página para atualizar a lista de produtos.
 
-    prods = supabase.table("produtos").select("*").execute().data
+    prods = supabase.table("produtos").select("*").execute().data 
     if prods:
         st.dataframe(pd.DataFrame(prods)[["id", "nome", "preco_custo", "margem_lucro", "preco_venda"]], use_container_width=True)
+
+
+        # 2. VENDAS DO DIA
+with aba2:
+    st.header("Registrar Venda")
+    prods = supabase.table("produtos").select("*").execute().data
+    if prods:
+        col_v1, col_v2 = st.columns(2)
+        with col_v1:
+            p_sel_nome = st.selectbox("Selecione o Produto", [p["nome"] for p in prods])
+        with col_v2:
+            qtd = st.number_input("Quantidade", min_value=1, step=1)
+            
+        if st.button("🛒 Confirmar Venda"):
+            p_info = next(p for p in prods if p["nome"] == p_sel_nome)
+            tot_venda = float(p_info["preco_venda"]) * qtd
+            tot_custo = float(p_info["preco_custo"]) * qtd
+            lucro = tot_venda - tot_custo
+            
+            supabase.table("vendas").insert({
+                "produto_id": p_info["id"], "produto_nome": p_info["nome"],
+                "quantidade": qtd, "preco_unitario": float(p_info["preco_venda"]),
+                "total_vendido": tot_venda, "custo_total": tot_custo,
+                "lucro_gerado": lucro, "fechado": False
+            }).execute()
+            st.success("Venda registrada!")
+            st.rerun()
